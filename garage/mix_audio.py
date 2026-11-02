@@ -22,9 +22,10 @@ def add(buf, sig, at, g=1.0):
 
 
 def bp(x, lo, hi):  # FFT band-pass with soft edges
-    X = np.fft.rfft(x); fr = np.fft.rfftfreq(len(x), 1 / SR)
+    n = len(x); L = 1 << int(np.ceil(np.log2(max(n, 2))))
+    X = np.fft.rfft(x, L); fr = np.fft.rfftfreq(L, 1 / SR)
     m = 1 / np.sqrt(1 + (lo / np.maximum(fr, 1)) ** 4) / np.sqrt(1 + (fr / hi) ** 4)
-    return np.fft.irfft(X * m, len(x))
+    return np.fft.irfft(X * m, L)[:n]
 
 
 def norm(x): return x / (np.abs(x).max() + 1e-9)
@@ -65,7 +66,7 @@ for (a, b, prog, lvl) in sections:
             if tb < b and a > 0: add(music, kick(0.35 if i % 2 == 0 else 0.18), tb)
         x += bar; k += 1
 # duck under voice
-venv = np.convolve(np.abs(voice), np.ones(int(0.15 * SR)) / int(0.15 * SR), mode="same")
+k = int(0.15 * SR); cs = np.concatenate([[0], np.cumsum(np.abs(voice))]); venv = (cs[np.minimum(np.arange(N) + k // 2, N)] - cs[np.maximum(np.arange(N) - k // 2, 0)]) / k
 music *= 1 - 0.55 * np.clip(venv / 0.03, 0, 1)
 music *= np.minimum(1, t_all / 1.0) * np.minimum(1, (DUR - t_all) / 1.5)
 
@@ -130,7 +131,7 @@ for c in CUES:
 # underground ambience bed (subtle room tone) in the mechanical scenes
 amb = bp(rs.standard_normal(N), 40, 300); amb = norm(amb) * 0.05
 mask = ((t_all > T["s2"]) & (t_all < T["s10"])).astype(float)
-mask = np.convolve(mask, np.ones(SR) / SR, mode="same")
+cm = np.concatenate([[0], np.cumsum(mask)]); mask = (cm[np.minimum(np.arange(N) + SR // 2, N)] - cm[np.maximum(np.arange(N) - SR // 2, 0)]) / SR
 sfx += amb * mask
 
 sfx *= 1 - 0.35 * np.clip(venv / 0.03, 0, 1)
